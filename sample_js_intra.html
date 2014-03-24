@@ -1,0 +1,113 @@
+<html>
+<body>
+<video id="webcam" style="display:none;"></video>
+<canvas id="feed"></canvas>
+<canvas id="display"></canvas>
+
+<script>
+
+// Override the function with all the posibilities
+navigator.getUserMedia ||
+        (navigator.getUserMedia = navigator.mozGetUserMedia ||
+        navigator.webkitGetUserMedia || navigator.msGetUserMedia);
+    
+    window.requestAnimationFrame ||
+        (window.requestAnimationFrame = window.webkitRequestAnimationFrame || 
+            window.mozRequestAnimationFrame || 
+            window.oRequestAnimationFrame || 
+            window.msRequestAnimationFrame || 
+            function( callback ){
+                window.setTimeout(callback, 1000 / 60);
+            });
+
+var video = document.getElementById('webcam');
+var  feed = document.getElementById('feed'),
+     feedContext = feed.getContext('2d'),
+     display = document.getElementById('display'),
+     displayContext = display.getContext('2d');
+ var num_frames = 0;
+ var old_time = Date.now();
+ <!-- callbacks for getusermedia -->
+function onSuccess(stream) {
+    var videoSource;
+
+    if (window.webkitURL) {
+        videoSource = window.webkitURL.createObjectURL(stream);
+    } else {
+        videoSource = stream;
+    }
+    video.src = videoSource;
+    video.play();
+
+    display.width = feed.width = 640;
+    display.height = feed.height = 480;
+
+    streamFeed();
+}
+
+function onError() {
+    alert('There has been a problem retreiving the streams - are you running on file:/// or did you disallow access?');
+} 
+
+function ProcessImage2(data) {
+    var datatemp = new Uint8ClampedArray(data);
+    var half_filter = 2;
+    for (var x = half_filter; x < display.width - half_filter; x ++) {
+    for (var y = half_filter; y < display.height - half_filter; y ++) {
+      for (var component = 0; component < 4; component++) {
+     
+        var value_temp = 0;
+        for (var x_temp = x - half_filter; x_temp <= x + half_filter; x_temp++) {
+          for (var y_temp = y - half_filter; y_temp <= y + half_filter; y_temp++) {
+            value_temp += datatemp[(y_temp * display.width + x_temp) * 4 + component];
+          }
+        }
+        value_temp /= ((2 * half_filter + 1) * (2 * half_filter + 1));        
+           
+        data[(y * display.width + x) * 4 + component] = value_temp;
+      }
+    }
+    }
+}
+
+function ProcessImage1(data) {
+  var datatemp = new Uint8ClampedArray(data);
+  var offset = 4 * 8;
+  for (var i = offset; i < data.length; i += 4) {        
+    data[i + 0] = datatemp[i + 0 - offset];
+    data[i + 1] = datatemp[i + 2];
+    data[i + 2] = 0;
+  }
+}
+
+function streamFeed() {
+    requestAnimationFrame(streamFeed);
+    feedContext.drawImage(video, 0, 0, display.width, display.height);
+    var myImage = feedContext.getImageData(0, 0, display.width, display.height);
+    ProcessImage2(myImage.data);
+    displayContext.putImageData(myImage, 0, 0);
+    num_frames++;
+    var frames_control = 10;
+    if (num_frames % frames_control == 0) {
+       var current_time = Date.now();
+       console.log("Fps = %f\n", 1000 * frames_control /(current_time - old_time));
+       old_time = current_time;
+    }
+    
+}
+
+ 
+function requestStreams() {
+    var getVideo = true;
+    var getAudio = false;
+    navigator.getUserMedia({video: getVideo, audio: getAudio}, 
+        onSuccess, onError);
+}
+
+// Start execution
+requestStreams();
+</script>
+
+
+</body>
+</html>
