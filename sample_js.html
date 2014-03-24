@@ -3,8 +3,15 @@
 <video id="webcam" style="display:none;"></video>
 <canvas id="feed"></canvas>
 <canvas id="display"></canvas>
+<select id="processing_select">
+  <option>1</option>
+  <option>2</option>
+  <option>3</option>
+</select>
+<button onClick=processing_changer()>Change processing function</button>
 
 <script>
+
 
 // Override the function with all the posibilities
 navigator.getUserMedia ||
@@ -49,26 +56,7 @@ function onError() {
     alert('There has been a problem retreiving the streams - are you running on file:/// or did you disallow access?');
 } 
 
-function ProcessImage2(data) {
-    var datatemp = new Uint8ClampedArray(data);
-    var half_filter = 2;
-    for (var x = half_filter; x < display.width - half_filter; x ++) {
-    for (var y = half_filter; y < display.height - half_filter; y ++) {
-      for (var component = 0; component < 4; component++) {
-     
-        var value_temp = 0;
-        for (var x_temp = x - half_filter; x_temp <= x + half_filter; x_temp++) {
-          for (var y_temp = y - half_filter; y_temp <= y + half_filter; y_temp++) {
-            value_temp += datatemp[(y_temp * display.width + x_temp) * 4 + component];
-          }
-        }
-        value_temp /= ((2 * half_filter + 1) * (2 * half_filter + 1));        
-           
-        data[(y * display.width + x) * 4 + component] = value_temp;
-      }
-    }
-    }
-}
+
 
 function ProcessImage1(data) {
   var datatemp = new Uint8ClampedArray(data);
@@ -80,14 +68,47 @@ function ProcessImage1(data) {
   }
 }
 
+function ProcessImage2(data) {
+    var datatemp = new Uint8ClampedArray(data);
+    var half_filter = 2;
+    var filter_num_pixels = ((2 * half_filter + 1) * (2 * half_filter + 1)); 
+    for (var x = half_filter; x < display.width - half_filter; x ++) {
+    for (var y = half_filter; y < display.height - half_filter; y ++) {
+      for (var component = 0; component < 4; component++) {
+     
+        var value_temp = 0;
+        for (var x_temp = x - half_filter; x_temp <= x + half_filter; x_temp++) {
+          for (var y_temp = y - half_filter; y_temp <= y + half_filter; y_temp++) {
+            value_temp += datatemp[(y_temp * display.width + x_temp) * 4 + component];
+          }
+        }
+        value_temp /= filter_num_pixels;        
+           
+        data[(y * display.width + x) * 4 + component] = value_temp;
+      }
+    }
+    }
+}
+
+
+var acum_image = null;
+function ProcessImage3(data) {
+  if (acum_image != null)
+    for (var i = 0; i < data.length; i ++) {        
+      data[i] = data[i] * 0.1 + acum_image[i] * 0.9;
+    }
+  acum_image = new Uint8ClampedArray(data);
+}
+
+var processing_function = ProcessImage1;
 function streamFeed() {
     requestAnimationFrame(streamFeed);
     feedContext.drawImage(video, 0, 0, display.width, display.height);
     var myImage = feedContext.getImageData(0, 0, display.width, display.height);
-    ProcessImage2(myImage.data);
+    processing_function(myImage.data);
     displayContext.putImageData(myImage, 0, 0);
     num_frames++;
-    var frames_control = 10;
+    var frames_control = 20;
     if (num_frames % frames_control == 0) {
        var current_time = Date.now();
        console.log("Fps = %f\n", 1000 * frames_control /(current_time - old_time));
@@ -96,6 +117,20 @@ function streamFeed() {
     
 }
 
+
+function processing_changer() {
+  var e = document.getElementById("processing_select");
+  var processing_f = e.options[e.selectedIndex].text;
+  if (processing_f == "1") {
+    processing_function = ProcessImage1;
+  }
+  if (processing_f == "2") {
+    processing_function = ProcessImage2;
+  }
+  if (processing_f == "3") {
+    processing_function = ProcessImage3;
+  }
+}
  
 function requestStreams() {
     var getVideo = true;
