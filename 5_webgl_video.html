@@ -6,52 +6,55 @@
 <script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
 <script type="text/javascript" src="webgl-utils.js"></script>
 
-<script id="shader-basic-fs" type="x-shader/x-fragment">
+
+<script id="shader-1-fs" type="x-shader/x-fragment">
     precision mediump float;
     varying vec2 vTextureCoord;
     uniform sampler2D uSampler;
-    varying vec4 vPosition;
+    uniform vec2 screenSize;
     
     void main(void) {
         vec4 color = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-        gl_FragColor = color + 1.0 / (pow(dist,3.0) + 0.1);
-    }
-</script>
-
-<script id="shader-lighting-fs" type="x-shader/x-fragment">
-    precision mediump float;
-    varying vec2 vTextureCoord;
-    uniform sampler2D uSampler;
-    varying vec4 vPosition;
-    
-
-    void main(void) {
-        vec3 light_pos = vec3(0.0, 0.0, -3.0);
-        vec4 color = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-        float dist = distance(light_pos, vec3(vPosition));
-        gl_FragColor = color + 1.0 / (pow(dist,3.0) + 0.1);
-    }
-</script>
-
-<script id="shader-extra-fs" type="x-shader/x-fragment">
-    precision mediump float;
-    varying vec2 vTextureCoord;
-    uniform sampler2D uSampler;
-    varying vec4 vPosition;
-
-    void main(void) {
-        vec4 color = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-        if (all(greaterThan(color.rgb, vec3(0.9, 0.9, 0.9))) ) {
-           discard;
-        }
-        
-        if (2.0 * vPosition.x + vPosition.y < 0.0) {
-           color.r = (sin(vTextureCoord.s * 20.0) + 1.0) / 2.0;
-        }
-        
         gl_FragColor = color;
     }
 </script>
+
+<script id="shader-2-fs" type="x-shader/x-fragment">
+    precision mediump float;
+    varying vec2 vTextureCoord;
+    uniform sampler2D uSampler;
+    uniform vec2 screenSize;
+    
+    void main(void) {
+        vec4 color = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+        vec4 color_temp = texture2D(uSampler, vec2(vTextureCoord.s + 10.0 / screenSize.x, vTextureCoord.t));
+        color.r = color_temp.r;
+        color.g = color.b;
+        color.b = 0.0;
+        gl_FragColor = color;
+    }
+</script>
+
+<script id="shader-3-fs" type="x-shader/x-fragment">
+    precision mediump float;
+    varying vec2 vTextureCoord;
+    uniform sampler2D uSampler;
+    uniform vec2 screenSize;
+
+    void main(void) {
+
+        vec4 color = vec4(0.0);
+        for (float x = -2.0; x <= 2.0; x++) {
+        for (float y = -2.0; y <= 2.0; y++) {
+           color += texture2D(uSampler, vec2(vTextureCoord.s + x / screenSize.x, vTextureCoord.t + y / screenSize.y));
+        }
+        }
+        color /= 25.0;
+        gl_FragColor = color;
+    }
+</script>
+
+
 
 <script id="shader-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
@@ -61,11 +64,9 @@
     uniform mat4 uPMatrix;
 
     varying vec2 vTextureCoord;
-    varying vec4 vPosition;
 
     void main(void) {
-        vPosition = uMVMatrix * vec4(aVertexPosition, 1.0);
-        gl_Position = uPMatrix * vPosition;
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
         vTextureCoord = aTextureCoord;
     }
 </script>
@@ -73,9 +74,14 @@
 
 <script type="text/javascript">
 
-    var gl;
+// Override the function with all the posibilities
+    navigator.getUserMedia ||
+        (navigator.getUserMedia = navigator.mozGetUserMedia ||
+        navigator.webkitGetUserMedia || navigator.msGetUserMedia);
 
-    function initGL(canvas) {
+    var gl;
+    var canvas;
+    function initGL() {
         try {
             gl = canvas.getContext("experimental-webgl");
             gl.viewportWidth = canvas.width;
@@ -123,12 +129,20 @@
         return shader;
     }
 
-
-    var shaderProgram;
+var programsArray = new Array();
+    var current_program;
 
     function initShaders() {
-        var fragmentShader = getShader(gl, "shader-extra-fs");
-        var vertexShader = getShader(gl, "shader-vs");
+        programsArray.push(createProgram("shader-vs", "shader-1-fs"));
+        programsArray.push(createProgram("shader-vs", "shader-2-fs"));
+        programsArray.push(createProgram("shader-vs", "shader-3-fs"));
+        current_program = programsArray[0];
+    }
+    
+     function createProgram(vertexShaderId, fragmentShaderId) {
+        var shaderProgram;
+        var fragmentShader = getShader(gl, fragmentShaderId);
+        var vertexShader = getShader(gl, vertexShaderId);
 
         shaderProgram = gl.createProgram();
         gl.attachShader(shaderProgram, vertexShader);
@@ -150,6 +164,8 @@
         shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
         shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
         shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
+        shaderProgram.screenSizeUniform = gl.getUniformLocation(shaderProgram, "screenSize");
+        return shaderProgram;
     }
 
 
@@ -190,22 +206,11 @@
     }
 
 
-    function setMatrixUniforms() {
-        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
-        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+    function setUniforms() {
+        gl.uniformMatrix4fv(current_program.pMatrixUniform, false, pMatrix);
+        gl.uniformMatrix4fv(current_program.mvMatrixUniform, false, mvMatrix);
+        gl.uniform2f(current_program.screenSizeUniform, canvas.width, canvas.height);
     }
-
-
-    function degToRad(degrees) {
-        return degrees * Math.PI / 180;
-    }
-
-
-    var xRot = 0;
-    var xSpeed = 10;
-
-    var yRot = 0;
-    var ySpeed = 10;
 
     var z = -5.0;
 
@@ -221,40 +226,10 @@
              1.0, -1.0,  1.0,
              1.0,  1.0,  1.0,
             -1.0,  1.0,  1.0,
-
-            // Back face
-            -1.0, -1.0, -1.0,
-            -1.0,  1.0, -1.0,
-             1.0,  1.0, -1.0,
-             1.0, -1.0, -1.0,
-
-            // Top face
-            -1.0,  1.0, -1.0,
-            -1.0,  1.0,  1.0,
-             1.0,  1.0,  1.0,
-             1.0,  1.0, -1.0,
-
-            // Bottom face
-            -1.0, -1.0, -1.0,
-             1.0, -1.0, -1.0,
-             1.0, -1.0,  1.0,
-            -1.0, -1.0,  1.0,
-
-            // Right face
-             1.0, -1.0, -1.0,
-             1.0,  1.0, -1.0,
-             1.0,  1.0,  1.0,
-             1.0, -1.0,  1.0,
-
-            // Left face
-            -1.0, -1.0, -1.0,
-            -1.0, -1.0,  1.0,
-            -1.0,  1.0,  1.0,
-            -1.0,  1.0, -1.0,
         ];
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
         cubeVertexPositionBuffer.itemSize = 3;
-        cubeVertexPositionBuffer.numItems = 24;
+        cubeVertexPositionBuffer.numItems = 4;
 
         cubeVertexTextureCoordBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
@@ -264,54 +239,19 @@
             1.0, 0.0,
             1.0, 1.0,
             0.0, 1.0,
-
-            // Back face
-            1.0, 0.0,
-            1.0, 1.0,
-            0.0, 1.0,
-            0.0, 0.0,
-
-            // Top face
-            0.0, 1.0,
-            0.0, 0.0,
-            1.0, 0.0,
-            1.0, 1.0,
-
-            // Bottom face
-            1.0, 1.0,
-            0.0, 1.0,
-            0.0, 0.0,
-            1.0, 0.0,
-
-            // Right face
-            1.0, 0.0,
-            1.0, 1.0,
-            0.0, 1.0,
-            0.0, 0.0,
-
-            // Left face
-            0.0, 0.0,
-            1.0, 0.0,
-            1.0, 1.0,
-            0.0, 1.0,
         ];
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
         cubeVertexTextureCoordBuffer.itemSize = 2;
-        cubeVertexTextureCoordBuffer.numItems = 24;
+        cubeVertexTextureCoordBuffer.numItems = 4;
 
         cubeVertexIndexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
         var cubeVertexIndices = [
             0, 1, 2,      0, 2, 3,    // Front face
-            4, 5, 6,      4, 6, 7,    // Back face
-            8, 9, 10,     8, 10, 11,  // Top face
-            12, 13, 14,   12, 14, 15, // Bottom face
-            16, 17, 18,   16, 18, 19, // Right face
-            20, 21, 22,   20, 22, 23  // Left face
         ]
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeVertexIndices), gl.STATIC_DRAW);
         cubeVertexIndexBuffer.itemSize = 1;
-        cubeVertexIndexBuffer.numItems = 36;
+        cubeVertexIndexBuffer.numItems = 6;
     }
 
 
@@ -319,26 +259,23 @@
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+        mat4.ortho(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0, pMatrix);
 
+        gl.useProgram(current_program);
         mat4.identity(mvMatrix);
 
-        mat4.translate(mvMatrix, [0.0, 0.0, z]);
-        mat4.rotate(mvMatrix, degToRad(xRot), [1, 0, 0]);
-        mat4.rotate(mvMatrix, degToRad(yRot), [0, 1, 0]);
-
         gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, cubeVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(current_program.vertexPositionAttribute, cubeVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
-        gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(current_program.textureCoordAttribute, cubeVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.uniform1i(shaderProgram.samplerUniform, 0);
+        gl.uniform1i(current_program.samplerUniform, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
-        setMatrixUniforms();
+        setUniforms();
         gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
 
@@ -346,14 +283,6 @@
     var lastTime = 0;
 
     function animate() {
-        var timeNow = new Date().getTime();
-        if (lastTime != 0) {
-            var elapsed = timeNow - lastTime;
-
-            xRot += (xSpeed * elapsed) / 1000.0;
-            yRot += (ySpeed * elapsed) / 1000.0;
-        }
-        lastTime = timeNow;
     }
 
     var num_frames = 0;
@@ -363,7 +292,7 @@
         drawScene();
         animate();
         num_frames++;
-        var frames_control = 20;
+        var frames_control = 40;
         if (num_frames % frames_control == 0) {
            var current_time = Date.now();
            console.log("Fps = %f\n", 1000 * frames_control /(current_time - old_time));
@@ -372,8 +301,10 @@
     }
 
     function webGLStart() {
-        var canvas = document.getElementById("webgl-canvas");
-        initGL(canvas);
+        navigator.getUserMedia({video: true, audio: false}, 
+        onSuccess, onError);
+        canvas = document.getElementById("webgl-canvas");
+        initGL();
         initShaders();
         initBuffers();
         initTexture();
@@ -383,6 +314,28 @@
 
         tick();
     }
+    
+    function processing_changer() {
+      var e = document.getElementById("processing_select");
+      var index = parseInt(e.options[e.selectedIndex].text) - 1;
+      current_program = programsArray[index];
+    }
+    var webcam = document.getElementById('webcam');
+    function onSuccess(stream) {
+    var videoSource;
+
+    if (window.webkitURL) {
+        videoSource = window.webkitURL.createObjectURL(stream);
+    } else {
+        videoSource = stream;
+    }
+    webcam.src = videoSource;
+    webcam.play();
+}
+
+function onError() {
+    alert('There has been a problem retreiving the streams - are you running on file:/// or did you disallow access?');
+} 
 
 </script>
 
@@ -392,8 +345,15 @@
 
 <body onload="webGLStart();">
     <!-- From learningwebgl.com -->
-
-    <canvas id="webgl-canvas" style="border: none;" width=1000" height="1000"></canvas>
+    <select id="processing_select">
+      <option>1</option>
+      <option>2</option>
+      <option>3</option>
+    </select>
+    <button onClick=processing_changer()>Change processing function</button>
+    </br>
+    <video id="webcam"></video>
+    <canvas id="webgl-canvas" style="border: none;" width=600" height="600"></canvas>
 
 </body>
 
