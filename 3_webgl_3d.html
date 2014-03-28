@@ -41,12 +41,13 @@
 
     void main(void) {
         vec4 color = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-        if (all(greaterThan(color.rgb, vec3(0.9, 0.9, 0.9))) ) {
-           discard;
-        }
-        
+ 
         if (2.0 * vPosition.x + vPosition.y < 0.0) {
-           color.r = (sin(vTextureCoord.s * 20.0) + 1.0) / 2.0;
+          color.r = (sin(gl_FragCoord.x / 20.0) + 1.0) / 2.0;
+        } else {
+          if ((sin(vTextureCoord.s * 20.0) + 1.0) / 2.0 > 0.9) {
+            discard;
+          }
         }
         
         gl_FragColor = color;
@@ -416,7 +417,7 @@
     <button onClick=processing_changer()>Change processing function</button>
     </br>
 
-    <canvas id="webgl-canvas" style="border: none;" width=1000" height="1000"></canvas>
+    <canvas id="webgl-canvas" style="border: none;" width=600" height="600"></canvas>
 
 </body>
 
