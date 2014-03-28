@@ -168,10 +168,11 @@ var programsArray = new Array();
         return shaderProgram;
     }
 
-
+    var webcam;
     var texture;
 
     function initTexture() {
+/*
         var crateImage = new Image();
         texture = gl.createTexture();
         texture.image = crateImage;
@@ -186,6 +187,16 @@ var programsArray = new Array();
             gl.bindTexture(gl.TEXTURE_2D, null);
         }
         crateImage.src = "cat.png";
+
+*/
+        texture = gl.createTexture();
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
     var mvMatrix = mat4.create();
@@ -220,35 +231,21 @@ var programsArray = new Array();
     function initBuffers() {
         cubeVertexPositionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
-        vertices = [
-            // Front face
-            -1.0, -1.0,  1.0,
-             1.0, -1.0,  1.0,
-             1.0,  1.0,  1.0,
-            -1.0,  1.0,  1.0,
-        ];
+        vertices = [-1.0, -1.0, 1.0, -1.0, 1.0,  1.0, -1.0,  1.0];
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-        cubeVertexPositionBuffer.itemSize = 3;
+        cubeVertexPositionBuffer.itemSize = 2;
         cubeVertexPositionBuffer.numItems = 4;
 
         cubeVertexTextureCoordBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexTextureCoordBuffer);
-        var textureCoords = [
-            // Front face
-            0.0, 0.0,
-            1.0, 0.0,
-            1.0, 1.0,
-            0.0, 1.0,
-        ];
+        var textureCoords = [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0 ];
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
         cubeVertexTextureCoordBuffer.itemSize = 2;
         cubeVertexTextureCoordBuffer.numItems = 4;
 
         cubeVertexIndexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
-        var cubeVertexIndices = [
-            0, 1, 2,      0, 2, 3,    // Front face
-        ]
+        var cubeVertexIndices = [0, 1, 2,      0, 2, 3];
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeVertexIndices), gl.STATIC_DRAW);
         cubeVertexIndexBuffer.itemSize = 1;
         cubeVertexIndexBuffer.numItems = 6;
@@ -272,11 +269,13 @@ var programsArray = new Array();
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, webcam);
         gl.uniform1i(current_program.samplerUniform, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
         setUniforms();
         gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
 
@@ -287,6 +286,7 @@ var programsArray = new Array();
 
     var num_frames = 0;
     var old_time = Date.now();
+
     function tick() {
         requestAnimFrame(tick);
         drawScene();
@@ -295,14 +295,13 @@ var programsArray = new Array();
         var frames_control = 40;
         if (num_frames % frames_control == 0) {
            var current_time = Date.now();
-           console.log("Fps = %f\n", 1000 * frames_control /(current_time - old_time));
+         //  console.log("Fps = %f\n", 1000 * frames_control /(current_time - old_time));
            old_time = current_time;
         }
     }
 
     function webGLStart() {
-        navigator.getUserMedia({video: true, audio: false}, 
-        onSuccess, onError);
+        
         canvas = document.getElementById("webgl-canvas");
         initGL();
         initShaders();
@@ -320,22 +319,28 @@ var programsArray = new Array();
       var index = parseInt(e.options[e.selectedIndex].text) - 1;
       current_program = programsArray[index];
     }
-    var webcam = document.getElementById('webcam');
-    function onSuccess(stream) {
-    var videoSource;
 
-    if (window.webkitURL) {
-        videoSource = window.webkitURL.createObjectURL(stream);
-    } else {
-        videoSource = stream;
+    function camStart() {
+        webcam = document.getElementById('webcam');
+        navigator.getUserMedia({video: true, audio: false}, onSuccess, onError);
     }
-    webcam.src = videoSource;
-    webcam.play();
-}
 
-function onError() {
-    alert('There has been a problem retreiving the streams - are you running on file:/// or did you disallow access?');
-} 
+    function onSuccess(stream) {
+      var videoSource;
+
+      if (window.webkitURL) {
+        videoSource = window.webkitURL.createObjectURL(stream);
+      } else {
+        videoSource = stream;
+      }
+      webcam.src = videoSource;
+      webcam.play();
+      webGLStart()
+    }
+
+    function onError() {
+      alert('There has been a problem retreiving the streams - are you running on file:/// or did you disallow access?');
+    } 
 
 </script>
 
@@ -343,7 +348,8 @@ function onError() {
 </head>
 
 
-<body onload="webGLStart();">
+<body onload="camStart();">
+    <!-- http://dev.opera.com/static/articles/2012/webgl-postprocessing/webgl-pp/texImage2D.html -->
     <!-- From learningwebgl.com -->
     <select id="processing_select">
       <option>1</option>
@@ -352,8 +358,9 @@ function onError() {
     </select>
     <button onClick=processing_changer()>Change processing function</button>
     </br>
+<!--    <video id="webcam" style="display:none;"></video>-->
     <video id="webcam"></video>
-    <canvas id="webgl-canvas" style="border: none;" width=600" height="600"></canvas>
+    <canvas id="webgl-canvas" style="border: none;" width=256" height="256"></canvas>
 
 </body>
 
