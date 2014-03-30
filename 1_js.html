@@ -3,6 +3,8 @@
 <video id="webcam" style="display:none;"></video>
 <canvas id="feed"></canvas>
 <canvas id="display"></canvas>
+getImageData: <input type="checkbox" id="getImageDataCheck" checked>
+putImageData: <input type="checkbox" id="putImageDataCheck" checked>
 <select id="processing_select">
   <option>1</option>
   <option>2</option>
@@ -58,8 +60,11 @@ function onError() {
 } 
 
 
-
 function ProcessImage1(data) {
+}
+
+
+function ProcessImage2(data) {
   var datatemp = new Uint8ClampedArray(data);
   var offset = 4 * 8;
   for (var i = offset; i < data.length; i += 4) {        
@@ -69,7 +74,7 @@ function ProcessImage1(data) {
   }
 }
 
-function ProcessImage2(data) {
+function ProcessImage3(data) {
     var datatemp = new Uint8ClampedArray(data);
     var half_filter = 2;
     var filter_num_pixels = ((2 * half_filter + 1) * (2 * half_filter + 1)); 
@@ -93,7 +98,7 @@ function ProcessImage2(data) {
 
 
 var acum_image = null;
-function ProcessImage3(data) {
+function ProcessImage4(data) {
   if (acum_image != null)
     for (var i = 0; i < data.length; i ++) {        
       data[i] = data[i] * 0.1 + acum_image[i] * 0.9;
@@ -101,21 +106,23 @@ function ProcessImage3(data) {
   acum_image = new Uint8ClampedArray(data);
 }
 
-function ProcessImage4(data) {
-}
-
-var processing_function = ProcessImage4;
+var processing_function = ProcessImage1;
+var myImage;
 function streamFeed() {
     requestAnimationFrame(streamFeed);
     feedContext.drawImage(video, 0, 0, display.width, display.height);
-    var myImage = feedContext.getImageData(0, 0, display.width, display.height);
-    processing_function(myImage.data);
-    displayContext.putImageData(myImage, 0, 0);
+    if (document.getElementById("getImageDataCheck").checked) {
+      myImage = feedContext.getImageData(0, 0, display.width, display.height);
+    }
+    processing_function(myImage.data);       
+    if (document.getElementById("putImageDataCheck").checked) {
+      displayContext.putImageData(myImage, 0, 0);
+    }
     num_frames++;
     var frames_control = 20;
     if (num_frames % frames_control == 0) {
        var current_time = Date.now();
-       console.log("Fps = %f\n", 1000 * frames_control /(current_time - old_time));
+       console.log("Fps = %s\n", (1000 * frames_control /(current_time - old_time)).toFixed(2));
        old_time = current_time;
     }
     

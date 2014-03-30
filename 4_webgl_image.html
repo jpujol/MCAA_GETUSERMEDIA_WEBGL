@@ -290,7 +290,7 @@ var programsArray = new Array();
         var frames_control = 40;
         if (num_frames % frames_control == 0) {
            var current_time = Date.now();
-           console.log("Fps = %f\n", 1000 * frames_control /(current_time - old_time));
+           console.log("Fps = %s\n", (1000 * frames_control /(current_time - old_time)).toFixed(2));
            old_time = current_time;
         }
     }

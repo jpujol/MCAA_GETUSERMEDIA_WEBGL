@@ -88,7 +88,6 @@
         }
     }
 
-
     function getShader(gl, id) {
         var shaderScript = document.getElementById(id);
         if (!shaderScript) {
@@ -123,7 +122,6 @@
 
         return shader;
     }
-
 
     var current_program_index = 0;
     var programsArray = new Array();
@@ -199,17 +197,14 @@
         mvMatrix = mvMatrixStack.pop();
     }
 
-
     function setMatrixUniforms() {
         gl.uniformMatrix4fv(programsArray[current_program_index].pMatrixUniform, false, pMatrix);
         gl.uniformMatrix4fv(programsArray[current_program_index].mvMatrixUniform, false, mvMatrix);
     }
 
-
     function degToRad(degrees) {
         return degrees * Math.PI / 180;
     }
-
 
     var xRot = 0;
     var xSpeed = 10;
@@ -352,9 +347,7 @@
         gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
 
-
     var lastTime = 0;
-
     function animate() {
         var timeNow = new Date().getTime();
         if (lastTime != 0) {
@@ -376,7 +369,7 @@
         var frames_control = 20;
         if (num_frames % frames_control == 0) {
            var current_time = Date.now();
-           console.log("Fps = %f\n", 1000 * frames_control /(current_time - old_time));
+           console.log("Fps = %s\n", (1000 * frames_control /(current_time - old_time)).toFixed(2));
            old_time = current_time;
         }
     }
@@ -398,17 +391,11 @@
       var e = document.getElementById("processing_select");
       current_program_index = parseInt(e.options[e.selectedIndex].text) - 1;
     }
-  
-    
-
 </script>
-
-
 </head>
 
-
 <body onload="webGLStart();">
-    <!-- From learningwebgl.com -->
+    <!-- Inspired from learningwebgl.com -->
     <select id="processing_select">
       <option>1</option>
       <option>2</option>
