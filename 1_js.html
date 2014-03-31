@@ -10,6 +10,7 @@ putImageData: <input type="checkbox" id="putImageDataCheck" checked>
   <option>2</option>
   <option>3</option>
   <option>4</option>
+  <option>5</option>
 </select>
 <button onClick=processing_changer()>Change processing function</button>
 
@@ -35,9 +36,12 @@ var  feed = document.getElementById('feed'),
      feedContext = feed.getContext('2d'),
      display = document.getElementById('display'),
      displayContext = display.getContext('2d');
- var num_frames = 0;
- var old_time = Date.now();
- <!-- callbacks for getusermedia -->
+var num_frames = 0;
+var old_time = Date.now();
+
+
+<!-- callbacks for getusermedia -->
+
 function onSuccess(stream) {
     var videoSource;
 
@@ -74,6 +78,7 @@ function ProcessImage2(data) {
   }
 }
 
+
 function ProcessImage3(data) {
     var datatemp = new Uint8ClampedArray(data);
     var half_filter = 2;
@@ -105,6 +110,46 @@ function ProcessImage4(data) {
     }
   acum_image = new Uint8ClampedArray(data);
 }
+
+
+// distortion, kind of underwater effect
+var phase_inc = 0;
+function ProcessImage5(data) {
+	var rate = 4;
+	var f = 4;
+    var datatemp = new Uint8ClampedArray(data);
+    for (var y = 0; y < display.height; y ++) {
+    for (var x = 0; x < display.width; x ++) {
+
+      var x_off = x - display.width/2;
+      var y_off = y - display.height/2;
+      var r = Math.sqrt(x_off*x_off + y_off*y_off);
+      var inc = 0;
+      if (r < display.height/2) {
+	    var z =  Math.sin(2 * Math.PI * f / display.width * r + phase_inc);
+	    z = z * Math.cos(2 * Math.PI * .5 / display.width * r);
+	    inc = Math.round(z * rate);
+	  }
+
+	  var x2 = x + inc;
+	  var y2 = y + inc;
+
+      if (x2 > display.width) {
+        x2 = display.width-1;
+      }
+
+      if (y2 > display.height) {
+        y2 = display.height-1;
+      }
+
+      for (var component = 0; component < 4; component++) {
+        data[(y * display.width + x) * 4 + component] = datatemp[(y2 * display.width + x2) * 4 + component];
+      }
+    }
+    }
+    phase_inc++;
+}
+
 
 var processing_function = ProcessImage1;
 var myImage;
@@ -143,6 +188,9 @@ function processing_changer() {
   }
   if (processing_f == "4") {
     processing_function = ProcessImage4;
+  }
+  if (processing_f == "5") {
+    processing_function = ProcessImage5;
   }
 }
  
