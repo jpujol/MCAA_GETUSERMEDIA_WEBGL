@@ -1,0 +1,258 @@
+<html>
+
+<head>
+
+
+<script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
+<script type="text/javascript" src="webgl-utils.js"></script>
+
+
+<script id="shader-1-fs" type="x-shader/x-fragment">
+    precision mediump float;
+    uniform sampler2D uSampler;
+    uniform vec2 screenSize;
+    uniform float frameNum;
+    
+    void main(void) {
+        vec4 color = texture2D(uSampler, vec2(gl_FragCoord.x / screenSize.x, 1.0 - gl_FragCoord.y / screenSize.y));
+        if (color.r > 0.5) {
+           color = vec4(1.0, 0.0, 0.0, 1.0);
+        } else {
+           color = vec4(0.0, 0.0, 0.0, 1.0);
+        }
+        gl_FragColor = color;
+    }
+</script>
+
+<script id="shader-vs" type="x-shader/x-vertex">
+    attribute vec2 aVertexPosition;
+    
+    void main(void) {
+        gl_Position = vec4(aVertexPosition, 0, 1);
+    }
+</script>
+
+
+<script type="text/javascript">
+
+// Override the function with all the posibilities
+    navigator.getUserMedia ||
+        (navigator.getUserMedia = navigator.mozGetUserMedia ||
+        navigator.webkitGetUserMedia || navigator.msGetUserMedia);
+
+    var gl;
+    var canvas;
+    function initGL() {
+        try {
+            gl = canvas.getContext("experimental-webgl",  {preserveDrawingBuffer: true});
+        } catch (e) {
+        }
+        if (!gl) {
+            alert("Could not initialise WebGL, sorry :-(");
+        }
+    }
+
+    function getShader(gl, id) {
+        var shaderScript = document.getElementById(id);
+        if (!shaderScript) {
+            return null;
+        }
+
+        var str = "";
+        var k = shaderScript.firstChild;
+        while (k) {
+            if (k.nodeType == 3) {
+                str += k.textContent;
+            }
+            k = k.nextSibling;
+        }
+
+        var shader;
+        if (shaderScript.type == "x-shader/x-fragment") {
+            shader = gl.createShader(gl.FRAGMENT_SHADER);
+        } else if (shaderScript.type == "x-shader/x-vertex") {
+            shader = gl.createShader(gl.VERTEX_SHADER);
+        } else {
+            return null;
+        }
+
+        gl.shaderSource(shader, str);
+        gl.compileShader(shader);
+
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            alert(gl.getShaderInfoLog(shader));
+            return null;
+        }
+
+        return shader;
+    }
+
+    var programsArray = new Array();
+    var current_program;
+
+    function initShaders() {
+        programsArray.push(createProgram("shader-vs", "shader-1-fs"));
+        current_program = programsArray[0];
+    }
+    
+     function createProgram(vertexShaderId, fragmentShaderId) {
+        var shaderProgram;
+        var fragmentShader = getShader(gl, fragmentShaderId);
+        var vertexShader = getShader(gl, vertexShaderId);
+
+        shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            alert("Could not initialise shaders");
+        }
+
+        gl.useProgram(shaderProgram);
+
+        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+
+        shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
+        shaderProgram.screenSizeUniform = gl.getUniformLocation(shaderProgram, "screenSize");
+        shaderProgram.frameNumUniform = gl.getUniformLocation(shaderProgram, "frameNum");
+        return shaderProgram;
+    }
+
+    var webcam;
+    var inTexture;
+
+
+    function initTextures() {
+        
+        // in texture
+        inTexture = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, inTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        
+       
+    }
+    
+    var frame_num = 0.0;
+
+    function initBuffers() {
+        var cubeVertexPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
+        vertices = [-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0],
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+        gl.vertexAttribPointer(current_program.vertexPositionAttribute, 2, gl.FLOAT, false, 0, 0);
+    }
+
+    var back_result;
+    function drawScene() {
+        canvas.width = webcam.offsetWidth;
+        canvas.height = webcam.offsetHeight;
+         
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, inTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, webcam);
+        gl.uniform1i(current_program.samplerUniform, 0);
+
+        gl.uniform2f(current_program.screenSizeUniform, canvas.width, canvas.height);
+        gl.uniform1f(current_program.frameNumUniform, frame_num);
+        
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE) {
+           back_result = new Uint8Array(canvas.width * canvas.height * 4);
+           gl.readPixels(0,0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, back_result); 
+        }
+    }
+    
+    function analyzeResult() {
+      var cont = 0;
+      for (var i = 0; i < back_result.length; i += 4) {
+        if (back_result[i] == 255 && back_result[i+1] == 0 && back_result[i+2] == 0) {
+          cont++;
+        }
+      }
+      console.log("Num red pixels = %s\n", (cont /  (back_result.length/4)).toFixed(2) );
+    }
+
+
+    var old_time = Date.now();
+
+    function tick() {
+        requestAnimFrame(tick);
+        drawScene();
+        frame_num++;
+        var frames_control = 40;
+        if (frame_num % frames_control == 0) {
+           var current_time = Date.now();
+           var fps = 1000 * frames_control /(current_time - old_time);
+           console.log("Fps = %s\n", fps.toFixed(2));
+           old_time = current_time;
+           
+           analyzeResult();
+        }
+        
+    }
+
+    function webGLStart() {
+        
+        canvas = document.getElementById("webgl-canvas");
+        initGL();
+        initShaders();
+        initBuffers();
+        initTextures();
+
+        gl.clearColor(1.0, 0.0, 0.0, 1.0);
+        gl.enable(gl.DEPTH_TEST);
+
+        tick();
+    }
+    
+    function camStart() {
+        webcam = document.getElementById('webcam');
+        navigator.getUserMedia({video: true, audio: false}, onSuccess, onError);
+    }
+
+    function onSuccess(stream) {
+      var videoSource;
+
+      if (window.webkitURL) {
+        videoSource = window.webkitURL.createObjectURL(stream);
+      } else {
+        videoSource = stream;
+      }
+      webcam.src = videoSource;
+      webcam.play();
+      webGLStart()
+    }
+
+    function onError() {
+      alert('There has been a problem retreiving the streams - are you running on file:/// or did you disallow access?');
+    } 
+
+</script>
+
+
+</head>
+
+
+<body onload="camStart();">
+    <!-- http://dev.opera.com/static/articles/2012/webgl-postprocessing/webgl-pp/texImage2D.html -->
+    <!-- From learningwebgl.com -->
+
+<!--    <video id="webcam" style="display:none;"></video>-->
+    <video id="webcam"  ></video>
+    <canvas id="webgl-canvas"  width="256" height="256"></canvas>
+
+</body>
+
+</html>

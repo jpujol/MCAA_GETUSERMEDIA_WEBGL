@@ -169,7 +169,7 @@
         return shader;
     }
 
-var programsArray = new Array();
+    var programsArray = new Array();
     var current_program;
 
     function initShaders() {
@@ -242,7 +242,6 @@ var programsArray = new Array();
         mvMatrix = mvMatrixStack.pop();
     }
 
-
     var frame_num = 0.0;
     function setUniforms() {
         gl.uniformMatrix4fv(current_program.pMatrixUniform, false, pMatrix);
@@ -277,13 +276,10 @@ var programsArray = new Array();
         cubeVertexIndexBuffer.numItems = 6;
     }
 
-
-
     function drawScene() {
-        
+       
         canvas.width = webcam.offsetWidth;
         canvas.height = webcam.offsetHeight;
-
     
         gl.viewport(0, 0, canvas.width, canvas.height);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -320,7 +316,7 @@ var programsArray = new Array();
         var frames_control = 40;
         if (frame_num % frames_control == 0) {
            var current_time = Date.now();
-           console.log("Fps = %f\n", 1000 * frames_control /(current_time - old_time));
+           console.log("Fps = %s\n", (1000 * frames_control /(current_time - old_time)).toFixed(2));
            old_time = current_time;
         }
     }
