@@ -316,7 +316,9 @@
         var frames_control = 40;
         if (frame_num % frames_control == 0) {
            var current_time = Date.now();
-           console.log("Fps = %s\n", (1000 * frames_control /(current_time - old_time)).toFixed(2));
+           var fps = (1000 * frames_control /(current_time - old_time)).toFixed(2);
+           console.log("Fps = %s\n", fps);
+           document.getElementById('fps_label').innerHTML = fps + ' fps';
            old_time = current_time;
         }
     }
@@ -372,6 +374,7 @@
 <body onload="camStart();">
     <!-- http://dev.opera.com/static/articles/2012/webgl-postprocessing/webgl-pp/texImage2D.html -->
     <!-- From learningwebgl.com -->
+    <label id="fps_label"></label> </br>
     <select id="processing_select">
       <option>1</option>
       <option>2</option>

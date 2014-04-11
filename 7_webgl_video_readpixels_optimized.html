@@ -12,24 +12,52 @@
     uniform sampler2D uSampler;
     uniform vec2 screenSize;
     uniform float frameNum;
+
+    bool processTexel(vec4 color) {
+      if (color.r > 0.5) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+
     
     void main(void) {
         vec2 coords = floor(gl_FragCoord.xy); 
         
         // only process first 1/4
-        if (coords.y > screenSize.y / 4.0) {
+        if (coords.y > screenSize.y / 8.0) {
           discard;
         }
-        for (float i = 0.0; i < 4.0; i++) {
-          vec4 color = texture2D(uSampler, vec2(gl_FragCoord.x / screenSize.x, 1.0 - ((gl_FragCoord.y * 4.0) + i)  / screenSize.y));
-          if (color.r > 0.5) {
-            color = vec4(1.0, 0.0, 0.0, 1.0);
-          } else {
-            color = vec4(0.0, 0.0, 0.0, 1.0);
+        vec4 final_color;
+        float color_component = 0.0;
+        for (int i = 0; i < 8; i++) {
+          vec4 color = texture2D(uSampler, vec2(gl_FragCoord.x / screenSize.x, 1.0 - ((gl_FragCoord.y * 8.0) + float(i))  / screenSize.y));
+          bool result = processTexel(color);
+          if (result) {
+            color_component += 0.5;
+          } 
+
+          if (i == 1) {
+            final_color.r = color_component; 
+            color_component = 0.0;
           }
-       
-          gl_FragColor = color;
+          if (i == 3) {
+            final_color.g = color_component; 
+            color_component = 0.0;
+          }
+          if (i == 5) { 
+            final_color.b = color_component; 
+            color_component = 0.0;
+          }
+          if (i == 7) {
+            final_color.a = color_component; 
+            color_component = 0.0;
+          }
         }
+       
+        gl_FragColor = final_color;
+
     }
 </script>
 
@@ -178,19 +206,24 @@
         gl.bindTexture(gl.TEXTURE_2D, null);
         
         if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE) {
-           back_result = new Uint8Array(canvas.width * canvas.height * 4 / 4);
-           gl.readPixels(0,0, canvas.width, canvas.height / 4, gl.RGBA, gl.UNSIGNED_BYTE, back_result); 
+           var optimization_factor = 8;
+           back_result = new Uint8Array(canvas.width * canvas.height * 4 / optimization_factor);
+           gl.readPixels(0,0, canvas.width, canvas.height / optimization_factor, gl.RGBA, gl.UNSIGNED_BYTE, back_result); 
         }
     }
     
     function analyzeResult() {
       var cont = 0;
-      for (var i = 0; i < back_result.length; i += 4) {
-        if (back_result[i] == 255 && back_result[i+1] == 0 && back_result[i+2] == 0) {
+      for (var i = 0; i < back_result.length; i ++) {
+        if (back_result[i] == 255) {
+          cont += 2;
+        } else if (back_result[i] == 128) {
           cont++;
-        }
+        } 
       }
-      console.log("Percentage red pixels = %s\n", (100 * cont /  (back_result.length/4)).toFixed(2) );
+      var processing_result = (cont /  (2 * back_result.length)).toFixed(2)
+      console.log("%% pixels = %s\n",  processing_result);
+      document.getElementById('result_processing_label').innerHTML = "% red pixels " + processing_result;  
     }
 
 
@@ -203,13 +236,15 @@
         var frames_control = 40;
         if (frame_num % frames_control == 0) {
            var current_time = Date.now();
-           var fps = 1000 * frames_control /(current_time - old_time);
-           console.log("Fps = %s\n", fps.toFixed(2));
+           var fps = (1000 * frames_control /(current_time - old_time)).toFixed(2);
+           console.log("Fps = %s\n", fps);
+           document.getElementById('fps_label').innerHTML = fps + ' fps';  
            old_time = current_time;
            
+        }
+        if (frame_num % 10) {
            analyzeResult();
         }
-        
     }
 
     function webGLStart() {
@@ -257,8 +292,10 @@
 <body onload="camStart();">
     <!-- http://dev.opera.com/static/articles/2012/webgl-postprocessing/webgl-pp/texImage2D.html -->
     <!-- From learningwebgl.com -->
+    <label id="fps_label"></label> </br>
+    <label id="result_processing_label"></label> </br>
 
-<!--    <video id="webcam" style="display:none;"></video>-->
+    <label id="fps_label"></label> </br>
     <video id="webcam"  ></video>
     <canvas id="webgl-canvas"  width="256" height="256"></canvas>
 
