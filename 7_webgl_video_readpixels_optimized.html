@@ -25,39 +25,51 @@
     void main(void) {
         vec2 coords = floor(gl_FragCoord.xy); 
         
-        // only process first 1/4
-        if (coords.y > screenSize.y / 8.0) {
+        // only process first 1/8
+        if (coords.y >= screenSize.y / 8.0) {
           discard;
         }
-        vec4 final_color;
+
         float color_component = 0.0;
-        for (int i = 0; i < 8; i++) {
-          vec4 color = texture2D(uSampler, vec2(gl_FragCoord.x / screenSize.x, 1.0 - ((gl_FragCoord.y * 8.0) + float(i))  / screenSize.y));
-          bool result = processTexel(color);
-          if (result) {
-            color_component += 0.5;
-          } 
-
-          if (i == 1) {
-            final_color.r = color_component; 
-            color_component = 0.0;
-          }
-          if (i == 3) {
-            final_color.g = color_component; 
-            color_component = 0.0;
-          }
-          if (i == 5) { 
-            final_color.b = color_component; 
-            color_component = 0.0;
-          }
-          if (i == 7) {
-            final_color.a = color_component; 
-            color_component = 0.0;
-          }
-        }
-       
-        gl_FragColor = final_color;
-
+        bool result;
+        // i = 0;
+        color_component = 0.0;
+        result = processTexel(texture2D(uSampler, vec2(gl_FragCoord.x / screenSize.x, 1.0 - (gl_FragCoord.y * 8.0 + 0.0)  / screenSize.y)));
+        if (result) color_component += 0.5;
+        // i = 1
+        result = processTexel(texture2D(uSampler, vec2(gl_FragCoord.x / screenSize.x, 1.0 - (gl_FragCoord.y * 8.0 + 1.0)  / screenSize.y)));
+        if (result) color_component += 0.5;
+        gl_FragColor.r = color_component;
+        color_component = 0.0;
+        
+         // i = 2;
+        color_component = 0.0;
+        result = processTexel(texture2D(uSampler, vec2(gl_FragCoord.x / screenSize.x, 1.0 - (gl_FragCoord.y * 8.0 + 2.0)  / screenSize.y)));
+        if (result) color_component += 0.5;
+        // i = 3
+        result = processTexel(texture2D(uSampler, vec2(gl_FragCoord.x / screenSize.x, 1.0 - (gl_FragCoord.y * 8.0 + 3.0)  / screenSize.y)));
+        if (result) color_component += 0.5;
+        gl_FragColor.g = color_component;
+        color_component = 0.0;
+        
+         // i = 4;
+        color_component = 0.0;
+        result = processTexel(texture2D(uSampler, vec2(gl_FragCoord.x / screenSize.x, 1.0 - (gl_FragCoord.y * 8.0 + 4.0)  / screenSize.y)));
+        if (result) color_component += 0.5;
+        // i = 5
+        result = processTexel(texture2D(uSampler, vec2(gl_FragCoord.x / screenSize.x, 1.0 - (gl_FragCoord.y * 8.0 + 5.0)  / screenSize.y)));
+        if (result) color_component += 0.5;
+        gl_FragColor.b = color_component;
+        color_component = 0.0;
+        
+         // i = 6;
+        color_component = 0.0;
+        result = processTexel(texture2D(uSampler, vec2(gl_FragCoord.x / screenSize.x, 1.0 - (gl_FragCoord.y * 8.0 + 6.0)  / screenSize.y)));
+        if (result) color_component += 0.5;
+        // i = 7
+        result = processTexel(texture2D(uSampler, vec2(gl_FragCoord.x / screenSize.x, 1.0 - (gl_FragCoord.y * 8.0 + 7.0)  / screenSize.y)));
+        if (result) color_component += 0.5;
+        gl_FragColor.a = color_component;
     }
 </script>
 
@@ -206,7 +218,7 @@
         gl.bindTexture(gl.TEXTURE_2D, null);
         
         if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE) {
-           var optimization_factor = 8;
+           var optimization_factor = 8.0;
            back_result = new Uint8Array(canvas.width * canvas.height * 4 / optimization_factor);
            gl.readPixels(0,0, canvas.width, canvas.height / optimization_factor, gl.RGBA, gl.UNSIGNED_BYTE, back_result); 
         }
@@ -214,16 +226,31 @@
     
     function analyzeResult() {
       var cont = 0;
-      for (var i = 0; i < back_result.length; i ++) {
+      var i = 0;
+      for (i = 0; i < back_result.length; i ++) {
         if (back_result[i] == 255) {
           cont += 2;
         } else if (back_result[i] == 128) {
           cont++;
-        } 
+        } //else if (back_result[i] != 0) alert("nooor " + back_result[i]);
       }
-      var processing_result = (cont /  (2 * back_result.length)).toFixed(2)
-      console.log("%% pixels = %s\n",  processing_result);
+      var processing_result = (100 * cont /  (8 * back_result.length / 4)).toFixed(2)
       document.getElementById('result_processing_label').innerHTML = "% red pixels " + processing_result;  
+   /*   
+      var display = document.getElementById('display');
+      var displayContext = display.getContext('2d');
+      display.width = canvas.width;
+      display.height = canvas.height / 8;
+      var tmp = displayContext.createImageData(canvas.width, canvas.height / 8);
+      for (i = 0; i < back_result.length; i += 4) {
+        if (back_result[i] != 255 || back_result[i+2] != 255 ) {
+          tmp.data[i] = 255; tmp.data[i+1] = 0; tmp.data[i+2] = 0; tmp.data[i+3] = 255;
+        } else {
+          tmp.data[i] = 255; tmp.data[i+1] = 255; tmp.data[i+2] = 255; tmp.data[i+3] = 255;
+        }        
+      }
+      displayContext.putImageData(tmp, 0, 0);
+    */  
     }
 
 
@@ -237,12 +264,12 @@
         if (frame_num % frames_control == 0) {
            var current_time = Date.now();
            var fps = (1000 * frames_control /(current_time - old_time)).toFixed(2);
-           console.log("Fps = %s\n", fps);
+      //     console.log("Fps = %s\n", fps);
            document.getElementById('fps_label').innerHTML = fps + ' fps';  
            old_time = current_time;
            
         }
-        if (frame_num % 10) {
+        if (frame_num % 10 == 0) {
            analyzeResult();
         }
     }
@@ -255,8 +282,7 @@
         initBuffers();
         initTextures();
 
-        gl.clearColor(1.0, 1.0, 0.0, 1.0);
-        gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
         tick();
     }
@@ -298,6 +324,7 @@
     <label id="fps_label"></label> </br>
     <video id="webcam"  ></video>
     <canvas id="webgl-canvas"  width="256" height="256"></canvas>
+    <canvas id="display"></canvas>
 
 </body>
 
