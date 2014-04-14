@@ -296,9 +296,11 @@
       var videoSource;
 
       if (window.webkitURL) {
-        videoSource = window.webkitURL.createObjectURL(stream);
+         videoSource = window.webkitURL.createObjectURL(stream);
+      } else if (window.URL) {
+         videoSource = window.URL.createObjectURL(stream);
       } else {
-        videoSource = stream;
+         videoSource = stream;
       }
       webcam.src = videoSource;
       webcam.play();

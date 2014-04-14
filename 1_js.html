@@ -47,6 +47,8 @@ function onSuccess(stream) {
 
     if (window.webkitURL) {
         videoSource = window.webkitURL.createObjectURL(stream);
+    } else if (window.URL) {
+        videoSource = window.URL.createObjectURL(stream);
     } else {
         videoSource = stream;
     }
